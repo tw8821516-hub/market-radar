@@ -1,0 +1,15 @@
+name: Market Radar
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  run-radar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run radar
+        run: node radar.js
