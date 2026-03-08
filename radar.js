@@ -3,8 +3,8 @@ const symbols = [
 "GLD","SLV","USO","UUP","FXE"
 ];
 
-const TOKEN = "8522391684:AAFhKj3jLdt9Gd3qL8yAwv8PLK-OclVnjZM";
-const CHAT_ID = "7341786399";
+const TOKEN = "你的BOT_TOKEN";
+const CHAT_ID = "你的CHAT_ID";
 
 async function sendTelegram(msg){
 
@@ -61,26 +61,32 @@ return result;
 
 const ma240 = MA(prices,240);
 
-const last = ma240.at(-1);
-const prev = ma240.at(-2);
+const lastPrice = prices.at(-1);
+const prevPrice = prices.at(-2);
+
+const lastMA = ma240.at(-1);
+const prevMA = ma240.at(-2);
 
 let signal="NONE";
 
-if(prev && last){
+if(prevPrice && lastPrice && prevMA && lastMA){
 
-if(prev<=last && last>prev){
-signal="MA240_UP";
+// 向上突破
+if(prevPrice <= prevMA && lastPrice > lastMA){
+signal="BREAK_UP";
 }
 
-if(prev>=last && last<prev){
-signal="MA240_DOWN";
+// 向下跌破
+if(prevPrice >= prevMA && lastPrice < lastMA){
+signal="BREAK_DOWN";
 }
 
 }
 
 return {
 symbol,
-ma240:last,
+price:lastPrice,
+ma240:lastMA,
 signal
 };
 
@@ -106,21 +112,17 @@ let message="📡 Market Radar\n\n";
 
 for(let r of results){
 
-if(r.signal==="MA240_UP"){
-message+=`${r.symbol} ▲ MA240 UP\n`;
+if(r.signal==="BREAK_UP"){
+message+=`${r.symbol} ▲ Break MA240\n`;
 }
 
-if(r.signal==="MA240_DOWN"){
-message+=`${r.symbol} ▼ MA240 DOWN\n`;
+if(r.signal==="BREAK_DOWN"){
+message+=`${r.symbol} ▼ Break MA240\n`;
 }
 
 }
 
 await sendTelegram(message);
-
-}else{
-
-await sendTelegram("📡 Market Radar\nNo signal");
 
 }
 
