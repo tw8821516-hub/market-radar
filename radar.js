@@ -3,8 +3,8 @@ const symbols = [
 "GLD","SLV","USO","UUP","FXE"
 ];
 
-const TOKEN = "你的BOT_TOKEN";
-const CHAT_ID = "你的CHAT_ID";
+const TOKEN = "8522391684:AAFhKj3jLdt9Gd3qL8yAwv8PLK-OclVnjZM";
+const CHAT_ID = "7341786399";
 
 async function sendTelegram(msg){
 
