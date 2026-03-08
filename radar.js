@@ -3,6 +3,27 @@ const symbols = [
 "GLD","SLV","USO","UUP","FXE"
 ];
 
+const TOKEN = "你的BOT_TOKEN";
+const CHAT_ID = "你的CHAT_ID";
+
+async function sendTelegram(message){
+
+const url =
+`https://api.telegram.org/bot${TOKEN}/sendMessage`;
+
+await fetch(url,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+chat_id:CHAT_ID,
+text:message
+})
+});
+
+}
+
 async function getData(symbol){
 
 const url =
@@ -77,6 +98,26 @@ let r=await getData(s);
 if(r.signal!=="NONE"){
 results.push(r);
 }
+
+}
+
+if(results.length>0){
+
+let message="📡 Market Radar\n\n";
+
+for(let r of results){
+
+if(r.signal==="MA240_UP"){
+message+=`${r.symbol} ▲ MA240 UP\n`;
+}
+
+if(r.signal==="MA240_DOWN"){
+message+=`${r.symbol} ▼ MA240 DOWN\n`;
+}
+
+}
+
+await sendTelegram(message);
 
 }
 
