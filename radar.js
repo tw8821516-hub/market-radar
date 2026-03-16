@@ -3,8 +3,9 @@ const symbols = [
 "GLD","SLV","USO","UUP","FXE"
 ];
 
-const TOKEN = "8522391684:AAFhKj3jLdt9Gd3qL8yAwv8PLK-OclVnjZM";
-const CHAT_ID = "7341786399";
+// 改成從 GitHub Secrets 讀取
+const TOKEN = process.env.TELEGRAM_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
 
 async function sendTelegram(msg){
 
@@ -23,12 +24,26 @@ text:msg
 
 }
 
+// 延遲工具（避免 API 限速）
+function sleep(ms){
+return new Promise(resolve => setTimeout(resolve,ms));
+}
+
 async function getData(symbol){
+
+try{
 
 const url =
 `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1h&range=60d`;
 
 const res = await fetch(url);
+
+// API錯誤處理
+if(!res.ok){
+console.log(symbol,"API ERROR",res.status);
+return {symbol,signal:"NONE"};
+}
+
 const data = await res.json();
 
 let prices =
@@ -71,12 +86,10 @@ let signal="NONE";
 
 if(prevPrice && lastPrice && prevMA && lastMA){
 
-// 向上突破
 if(prevPrice <= prevMA && lastPrice > lastMA){
 signal="BREAK_UP";
 }
 
-// 向下跌破
 if(prevPrice >= prevMA && lastPrice < lastMA){
 signal="BREAK_DOWN";
 }
@@ -89,6 +102,13 @@ price:lastPrice,
 ma240:lastMA,
 signal
 };
+
+}catch(e){
+
+console.log(symbol,"ERROR",e.message);
+return {symbol,signal:"NONE"};
+
+}
 
 }
 
@@ -103,6 +123,9 @@ let r = await getData(s);
 if(r.signal!=="NONE"){
 results.push(r);
 }
+
+// 每次請求間隔1秒
+await sleep(1000);
 
 }
 
