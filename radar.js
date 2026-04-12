@@ -3,7 +3,7 @@ const symbols = [
 "GLD","SLV","USO","UUP","FXE"
 ];
 
-// 改成從 GitHub Secrets 讀取
+// GitHub Secrets
 const TOKEN = process.env.TELEGRAM_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
@@ -24,7 +24,7 @@ text:msg
 
 }
 
-// 延遲工具（避免 API 限速）
+// 延遲工具
 function sleep(ms){
 return new Promise(resolve => setTimeout(resolve,ms));
 }
@@ -41,15 +41,23 @@ const res = await fetch(url);
 // API錯誤處理
 if(!res.ok){
 console.log(symbol,"API ERROR",res.status);
-return {symbol,signal:"NONE"};
+return null;
 }
 
 const data = await res.json();
 
+// ✅ 防呆（避免 crash）
 let prices =
-data.chart.result[0].indicators.quote[0].close;
+data.chart.result?.[0]?.indicators?.quote?.[0]?.close || [];
 
-prices = prices.filter(p => p);
+// ✅ 正確過濾 null
+prices = prices.filter(p => p !== null);
+
+// ✅ 資料不足直接跳過
+if(prices.length < 250){
+console.log(symbol,"資料不足");
+return null;
+}
 
 function MA(data,period){
 
@@ -82,9 +90,17 @@ const prevPrice = prices.at(-2);
 const lastMA = ma240.at(-1);
 const prevMA = ma240.at(-2);
 
-let signal="NONE";
+// ✅ 修正 bug（不能用 && 判斷）
+if(
+lastPrice === null ||
+prevPrice === null ||
+lastMA === null ||
+prevMA === null
+){
+return null;
+}
 
-if(prevPrice && lastPrice && prevMA && lastMA){
+let signal="NONE";
 
 if(prevPrice <= prevMA && lastPrice > lastMA){
 signal="BREAK_UP";
@@ -94,7 +110,14 @@ if(prevPrice >= prevMA && lastPrice < lastMA){
 signal="BREAK_DOWN";
 }
 
-}
+// ✅ Debug（讓你看得到）
+console.log(symbol,{
+lastPrice,
+prevPrice,
+lastMA,
+prevMA,
+signal
+});
 
 return {
 symbol,
@@ -106,7 +129,7 @@ signal
 }catch(e){
 
 console.log(symbol,"ERROR",e.message);
-return {symbol,signal:"NONE"};
+return null;
 
 }
 
@@ -120,7 +143,8 @@ for(let s of symbols){
 
 let r = await getData(s);
 
-if(r.signal!=="NONE"){
+// ✅ 防止 null 爆錯
+if(r && r.signal!=="NONE"){
 results.push(r);
 }
 
@@ -147,9 +171,13 @@ message+=`${r.symbol} ▼ Break MA240\n`;
 
 await sendTelegram(message);
 
+}else{
+
+console.log("沒有觸發訊號");
+
 }
 
-console.log(results);
+console.log("結果:",results);
 
 }
 
