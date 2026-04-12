@@ -34,11 +34,10 @@ async function getData(symbol){
 try{
 
 const url =
-`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1h&range=60d`;
+`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1h&range=5d`;
 
 const res = await fetch(url);
 
-// API錯誤處理
 if(!res.ok){
 console.log(symbol,"API ERROR",res.status);
 return null;
@@ -46,83 +45,44 @@ return null;
 
 const data = await res.json();
 
-// ✅ 防呆（避免 crash）
 let prices =
 data.chart.result?.[0]?.indicators?.quote?.[0]?.close || [];
 
-// ✅ 正確過濾 null
 prices = prices.filter(p => p !== null);
 
-// ✅ 資料不足直接跳過
-if(prices.length < 250){
+if(prices.length < 2){
 console.log(symbol,"資料不足");
 return null;
 }
 
-function MA(data,period){
-
-let result=[];
-
-for(let i=0;i<data.length;i++){
-
-if(i<period-1){
-result.push(null);
-}else{
-
-let slice=data.slice(i-period+1,i+1);
-let avg=slice.reduce((a,b)=>a+b)/period;
-
-result.push(avg);
-
-}
-
-}
-
-return result;
-
-}
-
-const ma240 = MA(prices,240);
-
 const lastPrice = prices.at(-1);
 const prevPrice = prices.at(-2);
 
-const lastMA = ma240.at(-1);
-const prevMA = ma240.at(-2);
+// 漲跌幅計算
+const changePercent = ((lastPrice - prevPrice) / prevPrice) * 100;
 
-// ✅ 修正 bug（不能用 && 判斷）
-if(
-lastPrice === null ||
-prevPrice === null ||
-lastMA === null ||
-prevMA === null
-){
-return null;
+let signal = "NONE";
+
+if(changePercent >= 2){
+signal = "UP";
 }
 
-let signal="NONE";
-
-if(prevPrice <= prevMA && lastPrice > lastMA){
-signal="BREAK_UP";
+if(changePercent <= -2){
+signal = "DOWN";
 }
 
-if(prevPrice >= prevMA && lastPrice < lastMA){
-signal="BREAK_DOWN";
-}
-
-// ✅ Debug（讓你看得到）
+// Debug（一定會印）
 console.log(symbol,{
 lastPrice,
 prevPrice,
-lastMA,
-prevMA,
+changePercent: changePercent.toFixed(2) + "%",
 signal
 });
 
 return {
 symbol,
 price:lastPrice,
-ma240:lastMA,
+changePercent,
 signal
 };
 
@@ -143,28 +103,30 @@ for(let s of symbols){
 
 let r = await getData(s);
 
-// ✅ 防止 null 爆錯
-if(r && r.signal!=="NONE"){
+// 👉 改這裡：全部保留（方便 debug）
+if(r){
 results.push(r);
 }
 
-// 每次請求間隔1秒
 await sleep(1000);
 
 }
 
-if(results.length>0){
+// 👉 篩選有訊號的
+let signals = results.filter(r => r.signal !== "NONE");
 
-let message="📡 Market Radar\n\n";
+if(signals.length>0){
 
-for(let r of results){
+let message="📡 Market Radar（2%異動）\n\n";
 
-if(r.signal==="BREAK_UP"){
-message+=`${r.symbol} ▲ Break MA240\n`;
+for(let r of signals){
+
+if(r.signal==="UP"){
+message+=`${r.symbol} 🚀 +${r.changePercent.toFixed(2)}%\n`;
 }
 
-if(r.signal==="BREAK_DOWN"){
-message+=`${r.symbol} ▼ Break MA240\n`;
+if(r.signal==="DOWN"){
+message+=`${r.symbol} 🔻 ${r.changePercent.toFixed(2)}%\n`;
 }
 
 }
@@ -173,11 +135,11 @@ await sendTelegram(message);
 
 }else{
 
-console.log("沒有觸發訊號");
+console.log("沒有達到2%異動");
 
 }
 
-console.log("結果:",results);
+console.log("全部結果:",results);
 
 }
 
