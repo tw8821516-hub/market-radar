@@ -3,6 +3,9 @@ const symbols = [
 "GLD","SLV","USO","UUP","FXE"
 ];
 
+// 🔥 模式切換（這行最重要）
+const MODE = "DEBUG"; // DEBUG / LIVE
+
 // GitHub Secrets
 const TOKEN = process.env.TELEGRAM_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
@@ -24,7 +27,6 @@ text:msg
 
 }
 
-// 延遲工具
 function sleep(ms){
 return new Promise(resolve => setTimeout(resolve,ms));
 }
@@ -48,10 +50,8 @@ const data = await res.json();
 let prices =
 data.chart.result?.[0]?.indicators?.quote?.[0]?.close || [];
 
-// 過濾 null
 prices = prices.filter(p => p !== null);
 
-// 至少要2筆資料
 if(prices.length < 2){
 return null;
 }
@@ -59,7 +59,6 @@ return null;
 const lastPrice = prices.at(-1);
 const prevPrice = prices.at(-2);
 
-// 計算漲跌幅
 const changePercent = ((lastPrice - prevPrice) / prevPrice) * 100;
 
 let signal = "NONE";
@@ -72,7 +71,7 @@ if(changePercent <= -2){
 signal = "DOWN";
 }
 
-// Debug（你現在會看到）
+// Debug log
 console.log(symbol,{
 lastPrice,
 prevPrice,
@@ -82,8 +81,6 @@ signal
 
 return {
 symbol,
-lastPrice,
-prevPrice,
 changePercent,
 signal
 };
@@ -105,7 +102,7 @@ for(let s of symbols){
 
 let r = await getData(s);
 
-if(r && r.signal !== "NONE"){
+if(r){
 results.push(r);
 }
 
@@ -113,18 +110,38 @@ await sleep(1000);
 
 }
 
-if(results.length > 0){
+let message = "📡 Market Radar\n\n";
 
-let message="📡 Market Radar (±2%)\n\n";
+// 🔥 DEBUG模式：全部顯示
+if(MODE === "DEBUG"){
 
 for(let r of results){
 
-if(r.signal==="UP"){
-message+=`${r.symbol} 🚀 +${r.changePercent.toFixed(2)}%\n`;
+message += `${r.symbol} ${r.changePercent.toFixed(2)}%\n`;
+
 }
 
-if(r.signal==="DOWN"){
-message+=`${r.symbol} 🔻 ${r.changePercent.toFixed(2)}%\n`;
+message += "\n🧪 DEBUG MODE";
+
+await sendTelegram(message);
+
+}
+
+// 🔥 LIVE模式：只發訊號
+if(MODE === "LIVE"){
+
+let signals = results.filter(r => r.signal !== "NONE");
+
+if(signals.length > 0){
+
+for(let r of signals){
+
+if(r.signal === "UP"){
+message += `${r.symbol} 🚀 +${r.changePercent.toFixed(2)}%\n`;
+}
+
+if(r.signal === "DOWN"){
+message += `${r.symbol} 🔻 ${r.changePercent.toFixed(2)}%\n`;
 }
 
 }
@@ -133,11 +150,13 @@ await sendTelegram(message);
 
 }else{
 
-console.log("沒有達到 ±2%");
+console.log("沒有達到條件");
 
 }
 
-console.log("全部結果:",results);
+}
+
+console.log("完成");
 
 }
 
