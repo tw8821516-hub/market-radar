@@ -48,17 +48,18 @@ const data = await res.json();
 let prices =
 data.chart.result?.[0]?.indicators?.quote?.[0]?.close || [];
 
+// 過濾 null
 prices = prices.filter(p => p !== null);
 
+// 至少要2筆資料
 if(prices.length < 2){
-console.log(symbol,"資料不足");
 return null;
 }
 
 const lastPrice = prices.at(-1);
 const prevPrice = prices.at(-2);
 
-// 漲跌幅計算
+// 計算漲跌幅
 const changePercent = ((lastPrice - prevPrice) / prevPrice) * 100;
 
 let signal = "NONE";
@@ -71,17 +72,18 @@ if(changePercent <= -2){
 signal = "DOWN";
 }
 
-// Debug（一定會印）
+// Debug（你現在會看到）
 console.log(symbol,{
 lastPrice,
 prevPrice,
-changePercent: changePercent.toFixed(2) + "%",
+changePercent: changePercent.toFixed(2)+"%",
 signal
 });
 
 return {
 symbol,
-price:lastPrice,
+lastPrice,
+prevPrice,
 changePercent,
 signal
 };
@@ -103,8 +105,7 @@ for(let s of symbols){
 
 let r = await getData(s);
 
-// 👉 改這裡：全部保留（方便 debug）
-if(r){
+if(r && r.signal !== "NONE"){
 results.push(r);
 }
 
@@ -112,14 +113,11 @@ await sleep(1000);
 
 }
 
-// 👉 篩選有訊號的
-let signals = results.filter(r => r.signal !== "NONE");
+if(results.length > 0){
 
-if(signals.length>0){
+let message="📡 Market Radar (±2%)\n\n";
 
-let message="📡 Market Radar（2%異動）\n\n";
-
-for(let r of signals){
+for(let r of results){
 
 if(r.signal==="UP"){
 message+=`${r.symbol} 🚀 +${r.changePercent.toFixed(2)}%\n`;
@@ -135,7 +133,7 @@ await sendTelegram(message);
 
 }else{
 
-console.log("沒有達到2%異動");
+console.log("沒有達到 ±2%");
 
 }
 
